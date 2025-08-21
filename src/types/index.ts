@@ -1,84 +1,87 @@
-/**
- * Интерфейс данных карточки товара
- */
+
+
 export interface ICard {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  category: string;
-  price: number | null;
+    id: string;
+    title: string;
+    description: string;
+    image: string;
+    category: string;
+    price: number | null;
 }
 
-/**
- * Интерфейс контактных данных пользователя
- */
-export interface IContacts {
-  email: string;
-  phone: string;
+export interface IOrder {
+    payment: string;
+    email: string;
+    phone: string;
+    address: string;
+    total: number;
+    items: string[];
 }
 
-/**
- * Интерфейс данных заказа
- */
-export interface IOrder extends IContacts {
-  items: string[]; // массив ID товаров
-  total: number;
-  address: string;
-  payment: 'online' | 'offline';
-}
-
-/**
- * Интерфейс ответа сервера на успешный заказ
- */
 export interface IOrderResult {
-  id: string;
-  total: number;
+    id: string;
+    total: number;
 }
 
-/**
- * Интерфейс для событий приложения
- * Ключ - название события, значение - callback функция
- */
+export interface ICardView extends ICard {
+    inBasket: boolean;
+}
+
+export interface IContacts {
+    email: string;
+    phone: string;
+}
+
 export interface IEvents {
-  [event: string]: (data?: any) => void;
+    [event: string]: (data?: any) => void;
 }
 
-/**
- * Интерфейс для API методов
- */
 export interface IApi {
-  getLotList: () => Promise<ICard[]>;
-  orderLots: (order: IOrder) => Promise<IOrderResult>;
+    getLotList: () => Promise<ICard[]>;
+    orderLots: (order: IOrder) => Promise<IOrderResult>;
 }
 
-/**
- * Интерфейс для данных формы заказа
- */
 export interface IOrderForm {
-  payment: 'online' | 'offline' | null;
-  address: string;
+    payment: 'online' | 'offline' | null;
+    address: string;
 }
 
-/**
- * Интерфейс для данных формы контактов
- */
 export interface IContactsForm {
-  email: string;
-  phone: string;
+    email: string;
+    phone: string;
 }
 
-/**
- * Интерфейс для результатов валидации
- */
 export interface IValidationResult {
-  isValid: boolean;
-  errors: Record<string, string>;
+    isValid: boolean;
+    errors: Record<string, string>;
 }
 
-/**
- * Интерфейс для состояния UI элементов
- */
 export interface IUIState {
-  disabled: boolean;
+    disabled: boolean;
+}
+
+export interface IModalData {
+    content: HTMLElement;
+}
+
+export interface IBasketData {
+    items: ICard[];
+    total: number;
+}
+
+export interface IFormFieldEvent {
+    field: string;
+    value: string;
+}
+
+export interface ICardSelectEvent {
+    card: ICard;
+}
+
+export interface IBasketEvent {
+    card: ICard;
+}
+
+export interface IBasketRemoveEvent {
+    id: string;
 }
