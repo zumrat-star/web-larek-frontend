@@ -1,59 +1,95 @@
-import { Component } from './base/component';
-import { ICard } from '../types/index';
-import { EventEmitter } from './base/events';
-import { ensureElement } from '../utils/utils';
+import { Component } from './base/component'
+import { ICard, IBasketModel, IEvents } from '../types'
+import { ensureElement } from '../utils/utils'
 
 export class Basket extends Component<{ items: ICard[]; total: number }> {
-    protected _list: HTMLElement;
-    protected _total: HTMLElement;
-    protected _button: HTMLButtonElement;
+  protected _list: HTMLElement
+  protected _total: HTMLElement
+  protected _button: HTMLButtonElement
 
-    constructor(container: HTMLElement, protected events: EventEmitter) {
-        super(container);
-        this._list = ensureElement<HTMLElement>('.basket__list', container);
-        this._total = ensureElement<HTMLElement>('.basket__price', container);
-        this._button = ensureElement<HTMLButtonElement>('.basket__button', container);
+  constructor(
+    container: HTMLElement,
+    protected events: IEvents,
+    protected basketModel: IBasketModel
+  ) {
+    super(container)
+    this._list = ensureElement<HTMLElement>('.basket__list', container)
+    this._total = ensureElement<HTMLElement>('.basket__price', container)
+    this._button = ensureElement<HTMLButtonElement>('.basket__button', container)
 
-        this._button.addEventListener('click', () => {
-            events.emit('order:open');
-        });
+    this._button.addEventListener('click', () => {
+      events.emit('order:open')
+    })
+
+    this._list.addEventListener('click', (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const deleteButton = target.closest('.basket__item-delete')
+
+      if (deleteButton) {
+        const itemElement = deleteButton.closest('.basket__item')
+        const id = itemElement?.getAttribute('data-id')
+
+        if (id) {
+          events.emit('basket:remove', { id })
+        }
+      }
+    })
+  }
+
+  updateBasket(): void {
+    const items = Array.from(this.basketModel.items.values())
+    const total = this.basketModel.getSumAllProducts()
+
+    this.renderItems(items)
+    this.total = total
+    this.buttonState = items.length === 0
+  }
+
+  private renderItems(items: ICard[]): void {
+    this._list.innerHTML = ''
+
+    if (items.length === 0) {
+      this._list.innerHTML = '<div class="basket__empty">Корзина пуста</div>'
+      return
     }
 
-    set items(items: ICard[]) {
-        this._list.innerHTML = '';
-        
-        items.forEach((item, index) => {
-            const itemTemplate = document.getElementById('card-basket') as HTMLTemplateElement;
-            if (!itemTemplate) return;
-            
-            const itemElement = itemTemplate.content.cloneNode(true) as DocumentFragment;
-            const itemContainer = itemElement.firstElementChild as HTMLElement;
-            
-            // Заполняем данные элемента корзины
-            const indexElement = itemContainer.querySelector('.basket__item-index');
-            const titleElement = itemContainer.querySelector('.card__title');
-            const priceElement = itemContainer.querySelector('.card__price');
-            const deleteButton = itemContainer.querySelector('.basket__item-delete');
-            
-            if (indexElement) indexElement.textContent = (index + 1).toString();
-            if (titleElement) titleElement.textContent = item.title;
-            if (priceElement) priceElement.textContent = `${item.price} синапсов`;
-            
-            if (deleteButton) {
-                deleteButton.addEventListener('click', () => {
-                    this.events.emit('basket:remove', { id: item.id });
-                });
-            }
-            
-            this._list.appendChild(itemContainer);
-        });
-    }
+    items.forEach((item: ICard, index: number) => {
+      const template = document.getElementById('card-basket') as HTMLTemplateElement
+      if (!template) return
 
-    set total(total: number) {
-        this.setText(this._total, `${total} синапсов`);
-    }
+      const element = template.content.cloneNode(true) as DocumentFragment
+      const container = element.firstElementChild as HTMLElement
+      container.setAttribute('data-id', item.id)
 
-    set buttonState(disabled: boolean) {
-        this.setDisabled(this._button, disabled);
+      const indexElement = container.querySelector('.basket__item-index')
+      const titleElement = container.querySelector('.card__title')
+      const priceElement = container.querySelector('.card__price')
+
+      if (indexElement) indexElement.textContent = (index + 1).toString()
+      if (titleElement) titleElement.textContent = item.title
+      if (priceElement) priceElement.textContent = `${item.price} синапсов`
+
+      this._list.appendChild(container)
+    })
+  }
+
+  set total(value: number) {
+    this.setText(this._total, `${value} синапсов`)
+  }
+
+  set buttonState(disabled: boolean) {
+    this.setDisabled(this._button, disabled)
+  }
+
+  protected setText(element: HTMLElement | null, value: string): void {
+    if (element) {
+      element.textContent = value
     }
+  }
+
+  protected setDisabled(element: HTMLButtonElement | null, state: boolean): void {
+    if (element) {
+      element.disabled = state
+    }
+  }
 }

@@ -35,3 +35,22 @@
     }
   }
 }
+
+.form__error {
+  color: #ff3333;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+  font-style: italic;
+  min-height: 16px;
+}
+
+.form__input_error {
+  border-color: #ff3333;
+  box-shadow: 0 0 3px #ff3333;
+}
+
+.order__field {
+  margin-bottom: 20px;
+  position: relative;
+}

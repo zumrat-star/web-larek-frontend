@@ -1,19 +1,23 @@
 export class Component<T> {
-    protected container: HTMLElement;
+  protected container: HTMLElement
 
-    constructor(container: HTMLElement) {
-        this.container = container;
-    }
+  constructor(container: HTMLElement) {
+    this.container = container
+  }
 
-    protected setText(element: HTMLElement, value: string) {
-        element.textContent = value;
-    }
+  protected setText(element: HTMLElement, value: string) {
+    element.textContent = value
+  }
 
-    protected setDisabled(element: HTMLButtonElement, state: boolean) {
-        element.disabled = state;
-    }
+  protected setDisabled(element: HTMLButtonElement, state: boolean) {
+    element.disabled = state
+  }
 
-    render(): HTMLElement {
-        return this.container;
-    }
+  render(): HTMLElement {
+    return this.container
+  }
+
+  getContainer(): HTMLElement {
+    return this.container
+  }
 }

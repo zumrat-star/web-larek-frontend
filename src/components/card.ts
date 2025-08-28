@@ -1,53 +1,89 @@
-import { Component } from './base/component';
-import { ICard } from '../types';
-import { ensureElement } from '../utils/utils';
+import { Component } from './base/component'
+import { ICard, IEvents } from '../types'
 
 export class Card extends Component<ICard> {
-    protected _categoryElement: HTMLSpanElement;
-    protected _titleElement: HTMLHeadingElement;
-    protected _imageElement: HTMLImageElement;
-    protected _priceElement: HTMLSpanElement;
-    protected _buttonElement: HTMLButtonElement;
+  protected _categoryElement: HTMLSpanElement | null
+  protected _titleElement: HTMLHeadingElement | null
+  protected _imageElement: HTMLImageElement | null
+  protected _priceElement: HTMLSpanElement | null
+  protected _buttonElement: HTMLButtonElement | null
+  protected _textElement: HTMLParagraphElement | null
+  protected _events: IEvents | null = null
 
-    constructor(container: HTMLElement) {
-        super(container);
-        
-        this._categoryElement = ensureElement<HTMLSpanElement>('.card__category', container);
-        this._titleElement = ensureElement<HTMLHeadingElement>('.card__title', container);
-        this._imageElement = ensureElement<HTMLImageElement>('.card__image', container);
-        this._priceElement = ensureElement<HTMLSpanElement>('.card__price', container);
-        this._buttonElement = ensureElement<HTMLButtonElement>('.card__button', container);
-    }
+  constructor(container: HTMLElement, events?: IEvents) {
+    super(container)
+    this._events = events
 
-    setData(data: ICard) {
-        if (data.category) this.category = data.category;
-        if (data.title) this.title = data.title;
-        if (data.image) this.image = data.image;
-        if (data.price !== undefined) this.price = data.price;
-    }
+    this._categoryElement = container.querySelector('.card__category')
+    this._titleElement = container.querySelector('.card__title')
+    this._imageElement = container.querySelector('.card__image')
+    this._priceElement = container.querySelector('.card__price')
+    this._buttonElement = container.querySelector('.button')
+    this._textElement = container.querySelector('.card__text')
 
-    set category(value: string) {
-        this.setText(this._categoryElement, value);
+    // Добавляем обработчик клика на всю карточку
+    if (events) {
+      this.container.addEventListener('click', event => {
+        // Предотвращаем всплытие события, если кликнули на кнопку
+        if (!(event.target as Element).closest('.button')) {
+          events.emit('card:select', { card: this.getCurrentData() })
+        }
+      })
     }
+  }
 
-    set title(value: string) {
-        this.setText(this._titleElement, value);
+  // Метод для получения текущих данных карточки
+  private getCurrentData(): ICard {
+    return {
+      id: this.container.dataset.id || '',
+      title: this._titleElement?.textContent || '',
+      category: this._categoryElement?.textContent || '',
+      image: this._imageElement?.src || '',
+      price: this._priceElement ? parseInt(this._priceElement.textContent || '0') : 0,
+      description: this._textElement?.textContent || '',
     }
+  }
 
-    set image(value: string) {
-        this._imageElement.src = value;
-        this._imageElement.alt = this.title;
-    }
+  setData(data: ICard) {
+    this.container.dataset.id = data.id
 
-    set price(value: number) {
-        this.setText(this._priceElement, value ? `${value} синапсов` : 'Бесценно');
-    }
+    if (data.category) this.category = data.category
+    if (data.title) this.title = data.title
+    if (data.image) this.image = data.image
+    if (data.price !== undefined) this.price = data.price
+    if (data.description && this._textElement) this.text = data.description
+  }
 
-    set buttonText(value: string) {
-        this.setText(this._buttonElement, value);
-    }
+  set category(value: string) {
+    this.setText(this._categoryElement, value)
+  }
 
-    set buttonDisabled(state: boolean) {
-        this.setDisabled(this._buttonElement, state);
+  set title(value: string) {
+    this.setText(this._titleElement, value)
+  }
+
+  set image(value: string) {
+    if (this._imageElement) {
+      this._imageElement.src = value
+      this._imageElement.alt = this._titleElement?.textContent || ''
     }
+  }
+
+  set price(value: number) {
+    this.setText(this._priceElement, value ? `${value} синапсов` : 'Бесценно')
+  }
+
+  set buttonText(value: string) {
+    this.setText(this._buttonElement, value)
+  }
+
+  set buttonDisabled(state: boolean) {
+    this.setDisabled(this._buttonElement, state)
+  }
+
+  set text(value: string) {
+    if (this._textElement) {
+      this.setText(this._textElement, value)
+    }
+  }
 }

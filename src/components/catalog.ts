@@ -1,46 +1,36 @@
-import { Component } from './base/component';
-import { ICard } from '../types';
-import { EventEmitter } from './base/events';
-import { Card } from './card';
+import { Component } from './base/component'
+import { IEvents } from '../types'
+import { ICard } from '../types'
+import { Card } from './card'
 
+export class Catalog extends Component<ICard[]> {
+  protected _cards: ICard[] = []
+  protected _cardInstances: Card[] = []
 
-export class Catalog extends Component<{ items: ICard[] }> {
-    protected _cards: HTMLElement[];
+  constructor(container: HTMLElement, protected events: IEvents) {
+    super(container)
+  }
 
-    constructor(container: HTMLElement, protected events: EventEmitter) {
-        super(container);
-        this._cards = [];
-    }
+  update(cards: ICard[]): void {
+    this._cards = cards
+    this.renderItems()
+  }
 
-    update(items: ICard[]) {
-        this.clear();
-        
-        items.forEach(item => {
-            const cardTemplate = document.getElementById('card-catalog') as HTMLTemplateElement;
-            if (!cardTemplate) return;
-            
-            const cardElement = cardTemplate.content.cloneNode(true) as DocumentFragment;
-            const cardContainer = cardElement.firstElementChild as HTMLElement;
-            
-            const card = new Card(cardContainer);
-            card.setData(item);
-            
-            // Добавляем карточку в DOM
-            this.container.appendChild(cardContainer);
-            
-            // Сохраняем ссылку на DOM-элемент (не экземпляр Card)
-            this._cards.push(cardContainer);
-            
-            // Обработчик клика
-            cardContainer.addEventListener('click', () => {
-                this.events.emit('card:select', { card: item });
-            });
-        });
-    }
+  private renderItems(): void {
+    const template = document.getElementById('card-catalog') as HTMLTemplateElement
+    if (!template) return
 
-    clear() {
-        // Удаляем все DOM-элементы карточек
-        this._cards.forEach(card => card.remove());
-        this._cards = [];
-    }
+    this.container.innerHTML = ''
+
+    this._cards.forEach(card => {
+      const element = template.content.cloneNode(true) as DocumentFragment
+      const container = element.firstElementChild as HTMLElement
+
+      const cardComponent = new Card(container, this.events)
+      cardComponent.setData(card)
+
+      this.container.appendChild(container)
+      this._cardInstances.push(cardComponent)
+    })
+  }
 }

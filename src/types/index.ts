@@ -1,87 +1,81 @@
-
+export type EventName = string | RegExp
+export type Subscriber = Function
 
 export interface ICard {
-    id: string;
-    title: string;
-    description: string;
-    image: string;
-    category: string;
-    price: number | null;
+  id: string
+  title: string
+  description: string
+  image: string
+  category: string
+  price: number | null
+}
+
+export interface IFormState {
+  valid: boolean
+  errors: string
+}
+
+export interface IOrderForm extends IFormState {
+  payment: 'online' | 'offline' | null
+  address: string
+}
+
+export interface IContactsForm extends IFormState {
+  email: string
+  phone: string
 }
 
 export interface IOrder {
-    payment: string;
-    email: string;
-    phone: string;
-    address: string;
-    total: number;
-    items: string[];
+  payment: 'online' | 'offline' | null
+  email: string
+  phone: string
+  address: string
+  total: number
+  items: string[]
 }
 
 export interface IOrderResult {
-    id: string;
-    total: number;
+  id: string
+  total: number
 }
 
-export interface ICardView extends ICard {
-    inBasket: boolean;
+export interface ISuccess {
+  total: number
 }
 
-export interface IContacts {
-    email: string;
-    phone: string;
+export interface IBasketModel extends IEvents {
+  items: ReadonlyMap<string, ICard>
+  getCounter(): number
+  getSumAllProducts(): number
+  setSelectedCard(card: ICard): void
+  deleteCardToBasket(id: string): void
+  clearBasketProducts(): void
+  checkProductInBasket(id: string): boolean
 }
 
 export interface IEvents {
-    [event: string]: (data?: any) => void;
+  on<T extends object>(event: EventName, callback: (data: T) => void): void
+  emit<T extends object>(event: string, data?: T): void
+  off(eventName: EventName, callback: Subscriber): void
+  trigger<T extends object>(event: string, context?: Partial<T>): (data: T) => void
 }
 
 export interface IApi {
-    getLotList: () => Promise<ICard[]>;
-    orderLots: (order: IOrder) => Promise<IOrderResult>;
+  getListProductCard: () => Promise<ICard[]>
+  getProductCard: (id: string) => Promise<ICard>
+  orderLots: (order: IOrder) => Promise<IOrderResult>
 }
 
-export interface IOrderForm {
-    payment: 'online' | 'offline' | null;
-    address: string;
-}
-
-export interface IContactsForm {
-    email: string;
-    phone: string;
-}
-
-export interface IValidationResult {
-    isValid: boolean;
-    errors: Record<string, string>;
-}
-
-export interface IUIState {
-    disabled: boolean;
-}
-
-export interface IModalData {
-    content: HTMLElement;
-}
-
-export interface IBasketData {
-    items: ICard[];
-    total: number;
-}
-
-export interface IFormFieldEvent {
-    field: string;
-    value: string;
-}
-
-export interface ICardSelectEvent {
-    card: ICard;
-}
-
-export interface IBasketEvent {
-    card: ICard;
+export interface IModal {
+  content: HTMLElement
+  open: () => void
+  close: () => void
 }
 
 export interface IBasketRemoveEvent {
-    id: string;
+  id: string
+}
+
+export interface ICardSelectEvent {
+  card: ICard
 }
