@@ -1,36 +1,19 @@
 import { Component } from './base/component'
 import { IEvents } from '../types'
-import { ICard } from '../types'
-import { Card } from './card'
 
-export class Catalog extends Component<ICard[]> {
-  protected _cards: ICard[] = []
-  protected _cardInstances: Card[] = []
-
+export class Catalog extends Component<HTMLElement[]> {
   constructor(container: HTMLElement, protected events: IEvents) {
     super(container)
   }
 
-  update(cards: ICard[]): void {
-    this._cards = cards
-    this.renderItems()
+  update(cards: HTMLElement[]): void {
+    this.renderItems(cards)
   }
 
-  private renderItems(): void {
-    const template = document.getElementById('card-catalog') as HTMLTemplateElement
-    if (!template) return
-
+  private renderItems(cards: HTMLElement[]): void {
     this.container.innerHTML = ''
-
-    this._cards.forEach(card => {
-      const element = template.content.cloneNode(true) as DocumentFragment
-      const container = element.firstElementChild as HTMLElement
-
-      const cardComponent = new Card(container, this.events)
-      cardComponent.setData(card)
-
-      this.container.appendChild(container)
-      this._cardInstances.push(cardComponent)
+    cards.forEach(cardElement => {
+      this.container.appendChild(cardElement)
     })
   }
 }

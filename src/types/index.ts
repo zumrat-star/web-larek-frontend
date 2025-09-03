@@ -77,5 +77,5 @@ export interface IBasketRemoveEvent {
 }
 
 export interface ICardSelectEvent {
-  card: ICard
+  id: string
 }

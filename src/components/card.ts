@@ -9,6 +9,7 @@ export class Card extends Component<ICard> {
   protected _buttonElement: HTMLButtonElement | null
   protected _textElement: HTMLParagraphElement | null
   protected _events: IEvents | null = null
+  protected _id = ''
 
   constructor(container: HTMLElement, events?: IEvents) {
     super(container)
@@ -26,25 +27,14 @@ export class Card extends Component<ICard> {
       this.container.addEventListener('click', event => {
         // Предотвращаем всплытие события, если кликнули на кнопку
         if (!(event.target as Element).closest('.button')) {
-          events.emit('card:select', { card: this.getCurrentData() })
+          events.emit('card:select', { id: this._id })
         }
       })
     }
   }
 
-  // Метод для получения текущих данных карточки
-  private getCurrentData(): ICard {
-    return {
-      id: this.container.dataset.id || '',
-      title: this._titleElement?.textContent || '',
-      category: this._categoryElement?.textContent || '',
-      image: this._imageElement?.src || '',
-      price: this._priceElement ? parseInt(this._priceElement.textContent || '0') : 0,
-      description: this._textElement?.textContent || '',
-    }
-  }
-
   setData(data: ICard) {
+    this._id = data.id
     this.container.dataset.id = data.id
 
     if (data.category) this.category = data.category
@@ -84,6 +74,19 @@ export class Card extends Component<ICard> {
   set text(value: string) {
     if (this._textElement) {
       this.setText(this._textElement, value)
+    }
+  }
+
+  // Метод для настройки кнопки
+  setupButton(inBasket: boolean, onAdd: () => void, onRemove: () => void) {
+    if (!this._buttonElement) return
+
+    if (inBasket) {
+      this._buttonElement.textContent = 'Убрать из корзины'
+      this._buttonElement.onclick = onRemove
+    } else {
+      this._buttonElement.textContent = 'В корзину'
+      this._buttonElement.onclick = onAdd
     }
   }
 }

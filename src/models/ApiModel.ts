@@ -20,19 +20,7 @@ export class ApiModel extends Api {
 
   // Отправка заказа
   async postOrder(order: IOrder): Promise<IOrderResult> {
-    const response = await fetch(`${this.baseUrl}/order`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(order),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Ошибка HTTP: ${response.status}`)
-    }
-
-    return this.post('/order', order) as Promise<IOrderResult>
+    return await this.post('/order', order) as Promise<IOrderResult>
   }
 
   // Получение информации о конкретном товаре
@@ -42,19 +30,5 @@ export class ApiModel extends Api {
       ...item,
       image: this.cdn + item.image,
     }
-  }
-
-  // Обновление товара
-  async updateProductItem(id: string, data: Partial<ICard>): Promise<ICard> {
-    const item = (await this.post(`/product/${id}`, data, 'PUT')) as ICard
-    return {
-      ...item,
-      image: this.cdn + item.image,
-    }
-  }
-
-  // Удаление товара
-  async deleteProductItem(id: string): Promise<void> {
-    await this.post(`/product/${id}`, {}, 'DELETE')
   }
 }

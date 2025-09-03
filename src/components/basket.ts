@@ -1,17 +1,13 @@
 import { Component } from './base/component'
-import { ICard, IBasketModel, IEvents } from '../types'
+import { IEvents } from '../types'
 import { ensureElement } from '../utils/utils'
 
-export class Basket extends Component<{ items: ICard[]; total: number }> {
+export class Basket extends Component<{ items: HTMLElement[]; total: number }> {
   protected _list: HTMLElement
   protected _total: HTMLElement
   protected _button: HTMLButtonElement
 
-  constructor(
-    container: HTMLElement,
-    protected events: IEvents,
-    protected basketModel: IBasketModel
-  ) {
+  constructor(container: HTMLElement, events: IEvents) {
     super(container)
     this._list = ensureElement<HTMLElement>('.basket__list', container)
     this._total = ensureElement<HTMLElement>('.basket__price', container)
@@ -20,32 +16,15 @@ export class Basket extends Component<{ items: ICard[]; total: number }> {
     this._button.addEventListener('click', () => {
       events.emit('order:open')
     })
-
-    this._list.addEventListener('click', (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      const deleteButton = target.closest('.basket__item-delete')
-
-      if (deleteButton) {
-        const itemElement = deleteButton.closest('.basket__item')
-        const id = itemElement?.getAttribute('data-id')
-
-        if (id) {
-          events.emit('basket:remove', { id })
-        }
-      }
-    })
   }
 
-  updateBasket(): void {
-    const items = Array.from(this.basketModel.items.values())
-    const total = this.basketModel.getSumAllProducts()
-
+  updateBasket(items: HTMLElement[], total: number): void {
     this.renderItems(items)
     this.total = total
     this.buttonState = items.length === 0
   }
 
-  private renderItems(items: ICard[]): void {
+  private renderItems(items: HTMLElement[]): void {
     this._list.innerHTML = ''
 
     if (items.length === 0) {
@@ -53,23 +32,8 @@ export class Basket extends Component<{ items: ICard[]; total: number }> {
       return
     }
 
-    items.forEach((item: ICard, index: number) => {
-      const template = document.getElementById('card-basket') as HTMLTemplateElement
-      if (!template) return
-
-      const element = template.content.cloneNode(true) as DocumentFragment
-      const container = element.firstElementChild as HTMLElement
-      container.setAttribute('data-id', item.id)
-
-      const indexElement = container.querySelector('.basket__item-index')
-      const titleElement = container.querySelector('.card__title')
-      const priceElement = container.querySelector('.card__price')
-
-      if (indexElement) indexElement.textContent = (index + 1).toString()
-      if (titleElement) titleElement.textContent = item.title
-      if (priceElement) priceElement.textContent = `${item.price} синапсов`
-
-      this._list.appendChild(container)
+    items.forEach(itemElement => {
+      this._list.appendChild(itemElement)
     })
   }
 
@@ -79,6 +43,10 @@ export class Basket extends Component<{ items: ICard[]; total: number }> {
 
   set buttonState(disabled: boolean) {
     this.setDisabled(this._button, disabled)
+  }
+
+  getContainer(): HTMLElement {
+    return this.container
   }
 
   protected setText(element: HTMLElement | null, value: string): void {

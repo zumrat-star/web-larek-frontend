@@ -1,6 +1,7 @@
 import { ApiModel } from './models/ApiModel'
 import { BasketModel } from './models/BasketModel'
 import { DataModel } from './models/DataModel'
+import { FormModel } from './models/FormModel'
 import { EventEmitter } from './components/base/events'
 import { Modal } from './components/base/Modal'
 import { Catalog } from './components/catalog'
@@ -8,21 +9,23 @@ import { Basket } from './components/basket'
 import { OrderForm } from './components/orderForm'
 import { ContactsForm } from './components/contactsForm'
 import { Success } from './components/success'
-import { ICard, IOrder, IOrderResult, IBasketModel, IEvents } from './types'
-import { API_URL, CDN_URL } from './utils/constants'
 import { Card } from './components/card'
+import { CardPreview } from './components/cardPreview'
+import { BasketItem } from './components/basketItem'
+import { ICard, IOrderResult, IEvents } from './types'
+import { API_URL, CDN_URL } from './utils/constants'
 
 export class App {
   private events: IEvents
   private api: ApiModel
-  private basketModel: IBasketModel
+  private basketModel: BasketModel
   private dataModel: DataModel
+  private formModel: FormModel
   private modal: Modal
   private basket: Basket
   private orderForm: OrderForm
   private contactsForm: ContactsForm
   private success: Success
-  private currentOrder: IOrder
   private catalogComponent: Catalog
 
   constructor() {
@@ -30,7 +33,7 @@ export class App {
     this.api = new ApiModel(API_URL, CDN_URL)
     this.basketModel = new BasketModel(this.events)
     this.dataModel = new DataModel()
-    this.currentOrder = this.createEmptyOrder()
+    this.formModel = new FormModel()
 
     this.initComponents()
     this.setupEventHandlers()
@@ -38,20 +41,20 @@ export class App {
   }
 
   private initComponents(): void {
-    // Инициализация модального окна
+    // Инициализация модального окна (View)
     const modalContainer = document.getElementById('modal-container') as HTMLElement
     this.modal = new Modal(modalContainer, this.events)
 
-    // Инициализация корзины
+    // Инициализация корзины (View)
     const basketTemplate = document.getElementById('basket') as HTMLTemplateElement
     const basketClone = basketTemplate.content.cloneNode(true) as HTMLElement
-    this.basket = new Basket(basketClone as HTMLElement, this.events, this.basketModel)
+    this.basket = new Basket(basketClone as HTMLElement, this.events)
 
-    // Инициализация каталога
+    // Инициализация каталога (View)
     const catalogContainer = document.querySelector('.gallery') as HTMLElement
     this.catalogComponent = new Catalog(catalogContainer, this.events)
 
-    // Инициализация форм
+    // Инициализация форм (View)
     const orderTemplate = document.getElementById('order') as HTMLTemplateElement
     const orderClone = orderTemplate.content.cloneNode(true) as DocumentFragment
     const orderFormElement = orderClone.querySelector('form[name="order"]') as HTMLFormElement
@@ -68,30 +71,31 @@ export class App {
     const successClone = successTemplate.content.cloneNode(true) as HTMLElement
     this.success = new Success(successClone as HTMLElement, this.events)
 
-    // Скрываем статические модальные окна
     this.hideStaticModals()
   }
 
   private setupEventHandlers(): void {
-    // Обработчики корзины
+    // Обработчики событий от Model
     this.events.on('basket:changed', this.handleBasketChanged.bind(this))
+    this.formModel.on('form:changed', this.handleFormChanged.bind(this))
+
+    // Обработчики событий от View
     this.events.on('basket:remove', this.handleBasketRemove.bind(this))
     this.events.on('basket:add', this.handleBasketAdd.bind(this))
-
-    // Обработчики заказа
     this.events.on('order:open', this.handleOrderOpen.bind(this))
     this.events.on('order:submit', this.handleOrderSubmit.bind(this))
     this.events.on('contacts:submit', this.handleContactsSubmit.bind(this))
-
-    // Обработчики форм
     this.events.on('order.payment:change', this.handlePaymentChange.bind(this))
     this.events.on('order.address:change', this.handleAddressChange.bind(this))
     this.events.on('order.email:change', this.handleEmailChange.bind(this))
     this.events.on('order.phone:change', this.handlePhoneChange.bind(this))
+    this.events.on('card:select', this.handleCardSelect.bind(this))
+    this.events.on('success:close', this.handleSuccessClose.bind(this))
 
-    // Обработчики каталога
-    this.events.on('catalog:updated', (data: { items: ICard[] }) => {
-      this.catalogComponent.update(data.items)
+    // Обработчик изменения каталога в модели
+    this.dataModel.on('catalog:changed', (data: { items: ICard[] }) => {
+      const cardElements = data.items.map(card => this.createCardElement(card))
+      this.catalogComponent.update(cardElements)
     })
 
     // Обработчики модального окна
@@ -103,30 +107,25 @@ export class App {
       document.body.classList.remove('modal-open')
     })
 
-    // Прочие обработчики
-    this.events.on('success:close', this.handleSuccessClose.bind(this))
-    this.events.on('card:select', this.handleCardSelect.bind(this))
-
     // Обработчик открытия корзины
     document.querySelector('.header__basket')?.addEventListener('click', () => {
-      this.basket.updateBasket()
+      this.updateBasketView()
       this.modal.content = this.basket.getContainer()
       this.modal.open()
     })
   }
 
+  // Обработчики событий от Model
   private handleBasketChanged(): void {
-    const counterElement = document.querySelector('.header__basket-counter')
-    if (counterElement) {
-      counterElement.textContent = this.basketModel.getCounter().toString()
-    }
-    this.basket.updateBasket()
-
-    if (this.modal.isOpen() && this.modal.content === this.basket.getContainer()) {
-      this.modal.content = this.basket.getContainer()
-    }
+    this.updateBasketView()
   }
 
+  private handleFormChanged(): void {
+    this.updateOrderFormValidity()
+    this.updateContactsFormValidity()
+  }
+
+  // Обработчики событий от View
   private handleBasketRemove(data: { id: string }): void {
     this.basketModel.deleteCardToBasket(data.id)
   }
@@ -135,15 +134,53 @@ export class App {
     this.basketModel.setSelectedCard(data)
   }
 
-  private handleOrderOpen(): void {
-    this.currentOrder = {
-      ...this.createEmptyOrder(),
-      items: Array.from(this.basketModel.items.keys()),
-      total: this.basketModel.getSumAllProducts(),
+  private handleCardSelect(data: { id: string }): void {
+    const card = this.dataModel.getProductById(data.id)
+    if (!card) {
+      console.error('Карточка не найдена:', data.id)
+      return
     }
 
-    this.orderForm.payment = this.currentOrder.payment
-    this.orderForm.address = this.currentOrder.address || ''
+    const previewTemplate = document.getElementById('card-preview') as HTMLTemplateElement
+    if (!previewTemplate) return
+
+    const previewElement = previewTemplate.content.cloneNode(true) as DocumentFragment
+    const previewContainer = previewElement.firstElementChild as HTMLElement
+
+    // Создаем экземпляр CardPreview
+    const cardPreview = new CardPreview(previewContainer, this.events)
+    cardPreview.setData(card)
+
+    // Настраиваем кнопку в зависимости от состояния корзины
+    const inBasket = this.basketModel.checkProductInBasket(card.id)
+    cardPreview.setupButton(
+      inBasket,
+      () => {
+        this.events.emit('basket:add', card)
+        this.modal.close()
+      },
+      () => {
+        this.events.emit('basket:remove', { id: card.id })
+        this.modal.close()
+      }
+    )
+
+    this.modal.content = previewContainer
+    this.modal.open()
+  }
+
+  private handleOrderOpen(): void {
+    this.formModel.updateState({
+      payment: null,
+      email: '',
+      phone: '',
+      address: '',
+      items: Array.from(this.basketModel.items.keys()),
+      total: this.basketModel.getSumAllProducts(),
+    })
+
+    this.orderForm.payment = this.formModel.state.payment
+    this.orderForm.address = this.formModel.state.address || ''
     this.updateOrderFormValidity()
 
     this.modal.content = this.orderForm.getContainer()
@@ -151,41 +188,43 @@ export class App {
   }
 
   private handleOrderSubmit(): void {
+    const orderValidation = this.formModel.validateOrderForm()
+    if (!orderValidation.isValid) {
+      this.orderForm.errors = orderValidation.errors.join(', ')
+      return
+    }
+
     // Переходим к форме контактов
-    this.currentOrder.email = ''
-    this.currentOrder.phone = ''
+    this.formModel.updateState({
+      email: '',
+      phone: '',
+    })
+
     this.contactsForm.email = ''
     this.contactsForm.phone = ''
-
-    // Сбрасываем ошибки
     this.contactsForm.setEmailError('')
     this.contactsForm.setPhoneError('')
-
-    // Обновляем валидность формы
     this.updateContactsFormValidity()
 
     this.modal.content = this.contactsForm.getContainer()
   }
 
   private handleContactsSubmit(): void {
-    // Проверяем валидность формы перед отправкой
-    if (!this.validateContactsForm()) {
+    const contactsValidation = this.formModel.validateContactsForm()
+    if (!contactsValidation.isValid) {
       this.contactsForm.errors = 'Пожалуйста, заполните все поля корректно'
       return
     }
 
     // Отправляем заказ на сервер
     this.api
-      .postOrder(this.currentOrder)
+      .postOrder(this.formModel.state)
       .then((result: unknown) => {
         const orderResult = result as IOrderResult
-        // Показываем успешное оформление
         this.success.total = orderResult.total
         this.modal.content = this.success.getContainer()
-
-        // Очищаем корзину
         this.basketModel.clearBasketProducts()
-        this.currentOrder = this.createEmptyOrder()
+        this.formModel.resetState()
       })
       .catch(error => {
         console.error('Ошибка оформления заказа:', error)
@@ -194,81 +233,87 @@ export class App {
   }
 
   private handlePaymentChange(data: { payment: 'online' | 'offline' | null }): void {
-    this.currentOrder.payment = data.payment
-    this.updateOrderFormValidity()
+    this.formModel.updateState({ payment: data.payment })
   }
 
   private handleAddressChange(data: { address: string }): void {
-    this.currentOrder.address = data.address
-    this.updateOrderFormValidity()
+    this.formModel.updateState({ address: data.address })
   }
 
   private handleEmailChange(data: { email: string }): void {
-    this.currentOrder.email = data.email
-
-    // Валидация email
-    const emailError = this.validateEmail(data.email)
+    this.formModel.updateState({ email: data.email })
+    const emailError = this.formModel.validateEmail(data.email)
     this.contactsForm.setEmailError(emailError)
-
-    this.updateContactsFormValidity()
   }
 
   private handlePhoneChange(data: { phone: string }): void {
-    this.currentOrder.phone = data.phone
-
-    // Валидация телефона
-    const phoneError = this.validatePhone(data.phone)
+    this.formModel.updateState({ phone: data.phone })
+    const phoneError = this.formModel.validatePhone(data.phone)
     this.contactsForm.setPhoneError(phoneError)
-
-    this.updateContactsFormValidity()
-  }
-
-  private updateContactsFormValidity(): void {
-    const isEmailValid = !this.validateEmail(this.currentOrder.email)
-    const isPhoneValid = !this.validatePhone(this.currentOrder.phone)
-    this.contactsForm.valid = isEmailValid && isPhoneValid
   }
 
   private handleSuccessClose(): void {
     this.modal.close()
   }
 
-  private handleCardSelect(data: { card: ICard }): void {
-    // Создаем модальное окно с предпросмотром карточки
-    const previewTemplate = document.getElementById('card-preview') as HTMLTemplateElement
-    if (!previewTemplate) return
+  // Вспомогательные методы
+  private createCardElement(card: ICard): HTMLElement {
+    const template = document.getElementById('card-catalog') as HTMLTemplateElement
+    const element = template.content.cloneNode(true) as DocumentFragment
+    const container = element.firstElementChild as HTMLElement
 
-    const previewElement = previewTemplate.content.cloneNode(true) as DocumentFragment
-    const previewContainer = previewElement.firstElementChild as HTMLElement
+    const cardComponent = new Card(container, this.events)
+    cardComponent.setData(card)
 
-    // Создаем экземпляр карточки для предпросмотра
-    const card = new Card(previewContainer, this.events)
-    card.setData(data.card)
+    return container
+  }
 
-    const button = previewContainer.querySelector('.button')
-    if (button) {
-      const newButton = button.cloneNode(true) as HTMLButtonElement
-      button.parentNode?.replaceChild(newButton, button)
+  private createBasketItemElement(item: ICard, index: number): HTMLElement {
+    const template = document.getElementById('card-basket') as HTMLTemplateElement
+    const element = template.content.cloneNode(true) as DocumentFragment
+    const container = element.firstElementChild as HTMLElement
+    container.setAttribute('data-id', item.id)
 
-      // Проверяем, есть ли товар в корзине
-      const inBasket = this.basketModel.checkProductInBasket(data.card.id)
+    new BasketItem(container, this.events, item, index)
 
-      if (inBasket) {
-        newButton.textContent = 'Убрать из корзины'
-        newButton.addEventListener('click', () => {
-          this.events.emit('basket:remove', { id: data.card.id })
-          this.modal.close()
-        })
-      } else {
-        newButton.textContent = 'В корзину'
-        newButton.addEventListener('click', () => {
-          this.events.emit('basket:add', data.card)
-          this.modal.close()
-        })
-      }
+    return container
+  }
+
+  private updateBasketView(): void {
+    const items = Array.from(this.basketModel.items.values())
+    const total = this.basketModel.getSumAllProducts()
+
+    // Обновляем счетчик
+    const counterElement = document.querySelector('.header__basket-counter')
+    if (counterElement) {
+      counterElement.textContent = this.basketModel.getCounter().toString()
     }
-    this.modal.content = previewContainer
-    this.modal.open()
+
+    // Создаем элементы корзины
+    const basketItemElements = items.map((item, index) => this.createBasketItemElement(item, index))
+
+    // Обновляем корзину
+    this.basket.updateBasket(basketItemElements, total)
+  }
+
+  private updateContactsFormValidity(): void {
+    const validation = this.formModel.validateContactsForm()
+    this.contactsForm.valid = validation.isValid
+
+    // Устанавливаем ошибки для отдельных полей
+    this.contactsForm.setEmailError(validation.errors.email)
+    this.contactsForm.setPhoneError(validation.errors.phone)
+  }
+
+  private updateOrderFormValidity(): void {
+    const validation = this.formModel.validateOrderForm()
+    this.orderForm.valid = validation.isValid
+
+    if (!validation.isValid) {
+      this.orderForm.errors = validation.errors.join(', ')
+    } else {
+      this.orderForm.errors = ''
+    }
   }
 
   private loadData(): void {
@@ -276,22 +321,10 @@ export class App {
       .getListProductCard()
       .then((cards: ICard[]) => {
         this.dataModel.catalog = cards
-        this.events.emit('catalog:updated', { items: cards })
       })
       .catch(error => {
         console.error('Ошибка загрузки товаров:', error)
       })
-  }
-
-  private createEmptyOrder(): IOrder {
-    return {
-      payment: null,
-      email: '',
-      phone: '',
-      address: '',
-      total: 0,
-      items: [],
-    }
   }
 
   private hideStaticModals(): void {
@@ -300,53 +333,5 @@ export class App {
         ;(modalElement as HTMLElement).style.display = 'none'
       }
     })
-  }
-
-  private updateOrderFormValidity(): void {
-    const isValid = this.validateOrderForm()
-    this.orderForm.valid = isValid
-  }
-
-  private validateOrderForm(): boolean {
-    return Boolean(this.currentOrder.payment && this.currentOrder.address?.trim().length > 0)
-  }
-
-  private validateContactsForm(): boolean {
-    const emailError = this.validateEmail(this.currentOrder.email)
-    const phoneError = this.validatePhone(this.currentOrder.phone)
-
-    return !emailError && !phoneError
-  }
-
-  private validateEmail(email: string): string {
-    if (email.length === 0) {
-      return 'Поле email обязательно для заполнения'
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email) && email.length > 0) {
-      return 'Введите корректный email (например: example@mail.com)'
-    }
-    return ''
-  }
-
-  private validatePhone(phone: string): string {
-    if (phone.length === 0) {
-      return 'Поле телефона обязательно для заполнения'
-    }
-    const phoneRegex =
-      /^(\+7|7|8)?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$/
-    const phoneDigits = phone.replace(/\D/g, '')
-    if (!phoneRegex.test(phoneDigits) && phone.length > 0) {
-      return 'Введите корректный номер телефона (например: +7 (999) 123-45-67)'
-    }
-    return ''
-  }
-
-  private isEmailValid(email: string): boolean {
-    return this.validateEmail(email) === ''
-  }
-
-  private isPhoneValid(phone: string): boolean {
-    return this.validatePhone(phone) === ''
   }
 }
